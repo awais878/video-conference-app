@@ -28,8 +28,11 @@ io.on("connection", (socket) => {
         io.to(to).emit("answer", { answer });
     });
 
-    socket.on("ice-candidate", ({ candidate }) => {
-        socket.broadcast.emit("ice-candidate", { candidate });
+    socket.on("ice-candidate", ({ candidate, to }) => {
+        io.to(to).emit("ice-candidate", {
+            candidate,
+            from: socket.id,
+        });
     });
 });
 
