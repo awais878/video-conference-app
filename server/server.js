@@ -1,7 +1,7 @@
 const express = require("express");
 const http = require("http");
-const cors = require("cors");
 const { Server } = require("socket.io");
+const cors = require("cors");
 
 const app = express();
 app.use(cors());
@@ -15,32 +15,26 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
-
     socket.on("join-room", (roomId) => {
         socket.join(roomId);
-        socket.to(roomId).emit("user-joined");
+        socket.to(roomId).emit("user-joined", socket.id);
     });
 
-    socket.on("offer", ({ roomId, offer }) => {
-        socket.to(roomId).emit("offer", offer);
+    socket.on("offer", ({ offer, to }) => {
+        io.to(to).emit("offer", { offer, from: socket.id });
     });
 
-    socket.on("answer", ({ roomId, answer }) => {
-        socket.to(roomId).emit("answer", answer);
+    socket.on("answer", ({ answer, to }) => {
+        io.to(to).emit("answer", { answer });
     });
 
-    socket.on("ice-candidate", ({ roomId, candidate }) => {
-        socket.to(roomId).emit("ice-candidate", candidate);
-    });
-
-    socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id);
+    socket.on("ice-candidate", ({ candidate }) => {
+        socket.broadcast.emit("ice-candidate", { candidate });
     });
 });
 
 const PORT = process.env.PORT || 5001;
 
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log("Server running");
 });

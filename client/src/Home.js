@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import "./Home.css";
 
 function Home() {
     const navigate = useNavigate();
@@ -17,20 +18,23 @@ function Home() {
     };
 
     return (
-        <div style={{ textAlign: "center", marginTop: "100px" }}>
-            <h1>Video Call App</h1>
+        <div className="home-container">
+            <h1>Video Conference App</h1>
 
-            <button onClick={createRoom}>Create New Room</button>
+            <button className="btn" onClick={createRoom}>
+                Create New Room
+            </button>
 
-            <br /><br />
-
-            <input
-                placeholder="Enter Room ID"
-                value={roomInput}
-                onChange={(e) => setRoomInput(e.target.value)}
-            />
-
-            <button onClick={joinRoom}>Join Room</button>
+            <div className="join-box">
+                <input
+                    placeholder="Enter Room ID"
+                    value={roomInput}
+                    onChange={(e) => setRoomInput(e.target.value)}
+                />
+                <button className="btn" onClick={joinRoom}>
+                    Join Room
+                </button>
+            </div>
         </div>
     );
 }
