@@ -1,229 +1,88 @@
-import React, { useEffect, useRef, useState } from "react";
-import io from "socket.io-client";
+import { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import "./VideoCall.css";
+import io from "socket.io-client";
 
 const socket = io("https://video-call-server-8hip.onrender.com");
 
-const VideoCall = () => {
+function VideoCall() {
     const { roomId } = useParams();
 
     const localVideo = useRef();
     const remoteVideo = useRef();
-    const peerConnection = useRef(null);
+    const peerConnection = useRef();
 
-    const [stream, setStream] = useState(null);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isCameraOff, setIsCameraOff] = useState(false);
-    const [status, setStatus] = useState("Waiting for user...");
-
-    // 🎥 Start Video
-    const startVideo = async () => {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-        });
-
-        setStream(mediaStream);
-        localVideo.current.srcObject = mediaStream;
-
-        // ✅ Create ONLY ONCE
-        if (!peerConnection.current) {
-            const pc = new RTCPeerConnection();
-            peerConnection.current = pc;
-
-            mediaStream.getTracks().forEach((track) => {
-                pc.addTrack(track, mediaStream);
+    useEffect(() => {
+        const init = async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
             });
 
-            pc.ontrack = (event) => {
+            localVideo.current.srcObject = stream;
+
+            peerConnection.current = new RTCPeerConnection();
+
+            stream.getTracks().forEach(track => {
+                peerConnection.current.addTrack(track, stream);
+            });
+
+            peerConnection.current.ontrack = (event) => {
                 remoteVideo.current.srcObject = event.streams[0];
             };
 
-            pc.onicecandidate = (event) => {
+            peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit("ice-candidate", {
-                        roomId,
-                        candidate: event.candidate,
+                        candidate: event.candidate
                     });
                 }
             };
-        }
-    };
 
-    // 📤 Create Offer
-    const createOffer = async () => {
-        if (!peerConnection.current) return;
+            socket.emit("join-room", roomId);
 
-        const offer = await peerConnection.current.createOffer();
-        await peerConnection.current.setLocalDescription(offer);
+            socket.on("user-joined", async (userId) => {
+                const offer = await peerConnection.current.createOffer();
+                await peerConnection.current.setLocalDescription(offer);
 
-        socket.emit("offer", { roomId, offer });
-    };
+                socket.emit("offer", { offer, to: userId });
+            });
 
-    // 📥 Create Answer
-    const createAnswer = async (offer) => {
-        if (!peerConnection.current || !stream) return;
+            socket.on("offer", async ({ offer, from }) => {
+                await peerConnection.current.setRemoteDescription(offer);
 
-        await peerConnection.current.setRemoteDescription(offer);
+                const answer = await peerConnection.current.createAnswer();
+                await peerConnection.current.setLocalDescription(answer);
 
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
+                socket.emit("answer", { answer, to: from });
+            });
 
-        socket.emit("answer", { roomId, answer });
-    };
+            socket.on("answer", async ({ answer }) => {
+                await peerConnection.current.setRemoteDescription(answer);
+            });
 
-    // 🚀 Run ONCE
-    useEffect(() => {
-        startVideo();
-
-        socket.emit("join-room", roomId);
-
-        socket.on("user-joined", async () => {
-            setStatus("User joined!");
-            createOffer();
-        });
-
-        socket.on("offer", async (offer) => {
-            setStatus("Connected!");
-            await createAnswer(offer);
-        });
-
-        socket.on("answer", async (answer) => {
-            if (!peerConnection.current) return;
-            await peerConnection.current.setRemoteDescription(answer);
-        });
-
-        socket.on("ice-candidate", async (candidate) => {
-            try {
-                await peerConnection.current.addIceCandidate(candidate);
-            } catch (e) {
-                console.error(e);
-            }
-        });
-
-        return () => {
-            socket.off("user-joined");
-            socket.off("offer");
-            socket.off("answer");
-            socket.off("ice-candidate");
-
-            // ✅ Clean connection
-            if (peerConnection.current) {
-                peerConnection.current.close();
-                peerConnection.current = null;
-            }
+            socket.on("ice-candidate", async ({ candidate }) => {
+                if (candidate) {
+                    await peerConnection.current.addIceCandidate(candidate);
+                }
+            });
         };
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // 🔇 Mute
-    const toggleMute = () => {
-        stream?.getAudioTracks().forEach((track) => {
-            track.enabled = !track.enabled;
-        });
-        setIsMuted(!isMuted);
-    };
-
-    // 🎥 Camera
-    const toggleCamera = () => {
-        stream?.getVideoTracks().forEach((track) => {
-            track.enabled = !track.enabled;
-        });
-        setIsCameraOff(!isCameraOff);
-    };
-
-    // 🖥 Screen Share
-    const startScreenShare = async () => {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-        });
-
-        const screenTrack = screenStream.getTracks()[0];
-
-        localVideo.current.srcObject = screenStream;
-
-        const sender = peerConnection.current
-            ?.getSenders()
-            .find((s) => s.track.kind === "video");
-
-        if (sender) {
-            sender.replaceTrack(screenTrack);
-        }
-
-        screenTrack.onended = () => {
-            const videoTrack = stream.getVideoTracks()[0];
-            localVideo.current.srcObject = stream;
-
-            if (sender) {
-                sender.replaceTrack(videoTrack);
-            }
-        };
-    };
+        init();
+    }, [roomId]);
 
     return (
-        <div className="container">
-            {/* Header */}
-            <div className="header">
-                <h2>Video Call</h2>
-                <p className="status">{status}</p>
+        <div style={{ textAlign: "center" }}>
+            <h2>Room: {roomId}</h2>
 
-                <p style={{ marginTop: "10px", color: "#94a3b8" }}>
-                    Share this link:
-                </p>
+            <p>Share this link:</p>
+            <input value={window.location.href} readOnly />
 
-                <div
-                    style={{
-                        background: "#1e293b",
-                        padding: "10px",
-                        borderRadius: "8px",
-                        display: "inline-block",
-                    }}
-                >
-                    {window.location.href}
-                </div>
-            </div>
-
-            {/* Videos */}
-            <div className="video-grid">
-                <div className="video-wrapper">
-                    <video ref={localVideo} autoPlay playsInline muted className="video" />
-                    <span className="label">You</span>
-                </div>
-
-                <div className="video-wrapper">
-                    <video ref={remoteVideo} autoPlay playsInline className="video" />
-                    <span className="label">Remote</span>
-                </div>
-            </div>
-
-            {/* Controls */}
-            <div className="controls">
-                <button onClick={toggleMute} className="button">
-                    {isMuted ? "🔊 Unmute" : "🔇 Mute"}
-                </button>
-
-                <button onClick={toggleCamera} className="button">
-                    {isCameraOff ? "🎥 Camera On" : "🚫 Camera Off"}
-                </button>
-
-                <button onClick={startScreenShare} className="button primary">
-                    🖥 Share Screen
-                </button>
-
-                <button
-                    onClick={() => {
-                        navigator.clipboard.writeText(window.location.href);
-                        alert("Link copied!");
-                    }}
-                    className="button"
-                >
-                    🔗 Copy Link
-                </button>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "20px" }}>
+                <video ref={localVideo} autoPlay muted style={{ width: "300px" }} />
+                <video ref={remoteVideo} autoPlay style={{ width: "300px" }} />
             </div>
         </div>
     );
-};
+}
 
 export default VideoCall;

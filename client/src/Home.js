@@ -1,69 +1,38 @@
-import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
-const Home = () => {
-    const [room, setRoom] = useState("");
+function Home() {
     const navigate = useNavigate();
+    const [roomInput, setRoomInput] = useState("");
 
     const createRoom = () => {
-        const randomId = Math.random().toString(36).substring(2, 8);
-        navigate(`/${randomId}`);
+        const roomId = Math.random().toString(36).substring(2, 8);
+        navigate(`/room/${roomId}`);
     };
 
     const joinRoom = () => {
-        if (room.trim() !== "") {
-            navigate(`/${room}`);
+        if (roomInput.trim() !== "") {
+            navigate(`/room/${roomInput}`);
         }
     };
 
     return (
-        <div style={styles.container}>
+        <div style={{ textAlign: "center", marginTop: "100px" }}>
             <h1>Video Call App</h1>
 
-            <button onClick={createRoom} style={styles.button}>
-                Create New Room
-            </button>
+            <button onClick={createRoom}>Create New Room</button>
 
-            <div style={{ marginTop: "20px" }}>
-                <input
-                    placeholder="Enter Room ID"
-                    value={room}
-                    onChange={(e) => setRoom(e.target.value)}
-                    style={styles.input}
-                />
-                <button onClick={joinRoom} style={styles.button}>
-                    Join Room
-                </button>
-            </div>
+            <br /><br />
+
+            <input
+                placeholder="Enter Room ID"
+                value={roomInput}
+                onChange={(e) => setRoomInput(e.target.value)}
+            />
+
+            <button onClick={joinRoom}>Join Room</button>
         </div>
     );
-};
-
-const styles = {
-    container: {
-        height: "100vh",
-        background: "#0f172a",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    button: {
-        padding: "12px 20px",
-        marginTop: "10px",
-        borderRadius: "10px",
-        border: "none",
-        background: "#3b82f6",
-        color: "white",
-        cursor: "pointer",
-    },
-    input: {
-        padding: "10px",
-        borderRadius: "8px",
-        border: "none",
-        marginRight: "10px",
-    },
-};
+}
 
 export default Home;

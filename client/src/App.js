@@ -1,16 +1,16 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import VideoCall from "./VideoCall";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./Home";
+import VideoCall from "./VideoCall";
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/:roomId" element={<VideoCall />} />
+        <Route path="/room/:roomId" element={<VideoCall />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
 
